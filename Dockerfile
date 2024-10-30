@@ -12,5 +12,6 @@ RUN go test -v ./...
 FROM scratch
 LABEL org.opencontainers.image.source=https://github.com/charlierm/whine/
 COPY --from=builder /app /whine
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENTRYPOINT ["/whine"]
