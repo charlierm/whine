@@ -81,11 +81,10 @@ func (g Govee) mapResponseToDevices(response devicesResponse) []Device {
 	devices := make([]Device, len(response.Data))
 	for i, d := range response.Data {
 		devices[i] = Device{
-			Sku:        d.Sku,
-			DeviceId:   d.Device,
-			Name:       d.DeviceName,
-			apiKey:     g.apiKey,
-			httpClient: g.client,
+			Sku:      d.Sku,
+			DeviceId: d.Device,
+			Name:     d.DeviceName,
+			client:   g,
 		}
 	}
 	return devices
@@ -94,13 +93,13 @@ func (g Govee) mapResponseToDevices(response devicesResponse) []Device {
 func mapResponseToState(response deviceStateResponse) *State {
 	state := State{}
 	for _, c := range response.Payload.Capabilities {
-		switch c.Type {
-		case "temperature":
-			state.temperature = convertFahrenheitToCelsius(c.State.Value.(float64)) // convert to celsius
-		case "humidity":
-			state.humidity = int(c.State.Value.(float64))
-		case "online":
-			state.online = c.State.Value.(bool)
+		switch c.Instance {
+		case "sensorTemperature":
+			state.Temperature = convertFahrenheitToCelsius(c.State.Value.(float64)) // convert to celsius
+		case "sensorHumidity":
+			state.Humidity = c.State.Value.(map[string]interface{})["currentHumidity"].(float64) //
+		case "IsOnline":
+			state.IsOnline = c.State.Value.(bool)
 		}
 	}
 	return &state
@@ -108,5 +107,6 @@ func mapResponseToState(response deviceStateResponse) *State {
 
 func setHeaders(r *http.Request, apiKey string) *http.Request {
 	r.Header.Set("Govee-API-Key", apiKey)
+	r.Header.Set("Content-Type", "application/json")
 	return r
 }

@@ -9,9 +9,9 @@ func newDeviceStateRequest() *deviceStateRequest {
 }
 
 type State struct {
-	online      bool
-	temperature float64
-	humidity    int
+	IsOnline    bool
+	Temperature float64
+	Humidity    float64
 }
 
 type deviceStateRequest struct {
