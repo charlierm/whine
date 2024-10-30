@@ -10,7 +10,7 @@ import (
 )
 
 const apiKeyEnvVar = "GOVEE_API_KEY"
-const minimumTemperature = 15.0
+const minimumTemperature = 11.0
 
 func getDevice() (*govee.Device, error) {
 	apiKey := os.Getenv(apiKeyEnvVar)
@@ -48,10 +48,31 @@ func getHeaterSwitch() (*kasa.Device, error) {
 	return nil, fmt.Errorf("no switch device found, cannot turn on heater")
 }
 
+func setHeaterOff() {
+	timer := time.NewTimer(1 * time.Hour)
+	heater, err := getHeaterSwitch()
+	if err != nil {
+		log.Warnf("error getting heater switch: %v", err)
+	}
+	go func() {
+		<-timer.C
+		log.Info("turning off heater")
+		err = heater.SetRelayState(false)
+		if err != nil {
+			log.Warnf("error turning off heater: %v", err)
+		}
+	}()
+}
+
 func monitorTemperature(ticker *time.Ticker, done <-chan struct{}) {
 	var device *govee.Device
 	var err error
 	var last time.Time
+
+	heater, err := getHeaterSwitch()
+	if err != nil {
+		log.Warnf("error getting heater switch: %v", err)
+	}
 
 	for {
 		select {
@@ -72,20 +93,16 @@ func monitorTemperature(ticker *time.Ticker, done <-chan struct{}) {
 				continue
 			}
 			log.Infof("current temperature: %.2f°c", state.Temperature)
-			if time.Since(last) >= time.Hour {
+			if time.Since(last) >= time.Hour && state.Temperature < minimumTemperature {
 				// Turn on!
-				log.Info("turning on heater")
-				heater, err := getHeaterSwitch()
-				if err != nil {
-					log.Warnf("error getting heater switch: %v", err)
-					continue
-				}
+				log.Info("turning on heater for 1 hour")
 				err = heater.SetRelayState(true)
 				if err != nil {
 					log.Warnf("error turning on heater: %v", err)
 					continue
 				}
 				last = time.Now()
+				setHeaterOff()
 				continue
 			}
 			log.Infof("not ready to turn on %s since last switch on", time.Since(last))
