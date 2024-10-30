@@ -1,47 +1,31 @@
 package main
 
 import (
-	"github.com/charlierm/whine/govee"
-	"github.com/charlierm/whine/weather"
+	"context"
 	log "github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
+	"time"
 )
-import "github.com/cloudkucooland/go-kasa"
 
 func main() {
-	getConditions()
-	discovery, err := kasa.BroadcastDiscovery(10, 10)
-	if err != nil {
-		log.Warnf("error discovering switch devices: %v", err)
-	}
-	if len(discovery) > 1 || len(discovery) == 0 {
-		log.Warnf("expected 1 switch device, got %d, will continue monitoring temperature", len(discovery))
-	}
+	setupLogging()
 
-	var device *kasa.Device
-	for ip, _ := range discovery {
-		device, err = kasa.NewDevice(ip)
-		if err != nil {
-			log.Warnf("issue setting up device: %v", err)
-			break
-		}
-	}
+	ticker := time.NewTicker(5 * time.Second)
 
-	// Get the current energy usage
-	emeter, err := device.GetEmeter()
-	if err != nil {
-		log.Warnf("failed to get energy meter: %v", err)
-	}
-	log.Infof("current energy usage: %v", emeter.CurrentMA)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer stop()
 
-	println(discovery)
-	println(weather.GetTemperature())
+	go monitorTemperature(ticker, ctx.Done())
+
+	<-ctx.Done()
+	log.Infof("received sigterm or sigint, shutting down")
 }
 
-func getConditions() {
-	goveeClient := govee.NewClient("")
-	_, err := goveeClient.ListDevices()
-	//devices[0].
-	if err != nil {
-		log.Warnf("error listing govee devices: %v", err)
-	}
+func setupLogging() {
+	log.SetFormatter(&log.TextFormatter{
+		DisableColors:          false,
+		FullTimestamp:          true,
+		DisableLevelTruncation: true,
+	})
 }
